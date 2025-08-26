@@ -5,12 +5,12 @@ using System.Collections.Generic;
 public static class BigQueryConfigurationHelper
 {
     // Configuration key constants
-    private const string BQ_PROJECT_ID_KEY = "bqProjectId";
-    private const string BQ_DATASET_ID_KEY = "bqDatasetId";
-    private const string BQ_TABLE_ID_KEY = "bqTableId";
-    private const string BQ_SERVICE_ACCOUNT_JSON_KEY = "bqServiceAccountJson";
-    private const string BQ_BASE_URL_KEY = "bqBaseUrl";
-    private const string GOOGLE_TOKEN_URL_KEY = "googleTokenUrl";
+    private const string BQ_PROJECT_ID_KEY = "mcd_bqProjectId";
+    private const string BQ_DATASET_ID_KEY = "mcd_bqDatasetId";
+    private const string BQ_TABLE_ID_KEY = "mcd_bqTableId";
+    private const string BQ_SERVICE_ACCOUNT_JSON_KEY = "mcd_bqServiceAccountJson";
+    private const string BQ_BASE_URL_KEY = "mcd_bqBaseUrl";
+    private const string BQ_GOOGLE_TOKEN_URL_KEY = "mcd_bqGoogleTokenUrl";
 
     public static BigQueryConfiguration GetConfiguration(IServiceProvider serviceProvider, ITracingService tracingService)
     {
@@ -25,18 +25,28 @@ public static class BigQueryConfigurationHelper
                 throw new InvalidPluginExecutionException("IEntityDataSourceRetrieverService is not available");
             }
 
-            // Retrieve configuration values
-            var projectId = GetConfigurationValue(dataSourceRetriever, BQ_PROJECT_ID_KEY, tracingService);
-            var datasetId = GetConfigurationValue(dataSourceRetriever, BQ_DATASET_ID_KEY, tracingService);
-            var tableId = GetConfigurationValue(dataSourceRetriever, BQ_TABLE_ID_KEY, tracingService);
-            var serviceAccountJson = GetConfigurationValue(dataSourceRetriever, BQ_SERVICE_ACCOUNT_JSON_KEY, tracingService);
+            // Retrieve the data source once and reuse it - this returns an Entity
+            tracingService.Trace("Retrieving entity data source...");
+            Entity dataSourceEntity = dataSourceRetriever.RetrieveEntityDataSource();
             
-            // Retrieve URL configuration values with defaults
-            var baseUrl = GetConfigurationValueWithDefault(dataSourceRetriever, BQ_BASE_URL_KEY, "https://bigquery.googleapis.com/bigquery/v2", tracingService);
-            var tokenUrl = GetConfigurationValueWithDefault(dataSourceRetriever, GOOGLE_TOKEN_URL_KEY, "https://oauth2.googleapis.com/token", tracingService);
+            if (dataSourceEntity == null)
+            {
+                tracingService.Trace("Entity data source is null");
+                throw new InvalidPluginExecutionException("Entity data source is null");
+            }
+
+            tracingService.Trace($"Entity data source retrieved successfully. Entity: {dataSourceEntity.LogicalName}, Attributes: {dataSourceEntity.Attributes.Count}");
+
+            // Retrieve configuration values using the shared data source entity
+            var projectId = GetConfigurationValue(dataSourceEntity, BQ_PROJECT_ID_KEY, tracingService);
+            var datasetId = GetConfigurationValue(dataSourceEntity, BQ_DATASET_ID_KEY, tracingService);
+            var tableId = GetConfigurationValue(dataSourceEntity, BQ_TABLE_ID_KEY, tracingService);
+            var serviceAccountJson = GetConfigurationValue(dataSourceEntity, BQ_SERVICE_ACCOUNT_JSON_KEY, tracingService);
+            var baseUrl = GetConfigurationValue(dataSourceEntity, BQ_BASE_URL_KEY, tracingService);
+            var tokenUrl = GetConfigurationValue(dataSourceEntity, BQ_GOOGLE_TOKEN_URL_KEY, tracingService);
 
             // Validate required configuration
-            ValidateConfiguration(projectId, datasetId, tableId, serviceAccountJson);
+            ValidateConfiguration(projectId, datasetId, tableId, serviceAccountJson, baseUrl, tokenUrl);
 
             tracingService.Trace($"Configuration loaded successfully - Project: {projectId}, Dataset: {datasetId}, Table: {tableId}");
             tracingService.Trace($"URLs - BaseUrl: {baseUrl}, TokenUrl: {tokenUrl}");
@@ -58,16 +68,41 @@ public static class BigQueryConfigurationHelper
         }
     }
 
-    private static string GetConfigurationValue(IEntityDataSourceRetrieverService dataSourceRetriever, string key, ITracingService tracingService)
+    private static string GetConfigurationValue(Entity dataSourceEntity, string key, ITracingService tracingService)
     {
         try
         {
             tracingService.Trace($"Retrieving configuration value for key: {key}");
             
-            // The RetrieveEntityChanges method is used to get configuration values
-            // The key is passed as a parameter and the configuration value is returned
-            var configValue = dataSourceRetriever.RetrieveEntityChanges(key);
-            
+            string configValue = null;
+
+            // Try to safely get and convert the value
+            try
+            {
+                object rawValue = dataSourceEntity[key.ToLower()];
+                configValue = rawValue?.ToString();
+            }
+            catch (KeyNotFoundException)
+            {
+                tracingService.Trace($"Configuration key '{key}' not found in data source");
+                throw new InvalidPluginExecutionException($"Configuration key '{key}' not found");
+            }
+            catch (ArgumentNullException)
+            {
+                tracingService.Trace($"Configuration key '{key}' is null");
+                throw new InvalidPluginExecutionException($"Configuration key '{key}' cannot be null");
+            }
+            catch (InvalidCastException)
+            {
+                tracingService.Trace($"Cannot convert value for key '{key}' to string");
+                throw new InvalidPluginExecutionException($"Configuration value for key '{key}' is not a valid string");
+            }
+            catch (Exception ex)
+            {
+                tracingService.Trace($"Unexpected error accessing key '{key}': {ex.Message}");
+                throw new InvalidPluginExecutionException($"Error accessing configuration key '{key}': {ex.Message}");
+            }
+
             if (string.IsNullOrEmpty(configValue))
             {
                 tracingService.Trace($"Configuration value for key '{key}' is null or empty");
@@ -77,38 +112,19 @@ public static class BigQueryConfigurationHelper
             tracingService.Trace($"Successfully retrieved configuration value for key: {key}");
             return configValue;
         }
-        catch (Exception ex)
+        catch (InvalidPluginExecutionException)
         {
-            tracingService.Trace($"Error retrieving configuration value for key '{key}': {ex.Message}");
+            // Re-throw our custom exceptions
             throw;
         }
-    }
-
-    private static string GetConfigurationValueWithDefault(IEntityDataSourceRetrieverService dataSourceRetriever, string key, string defaultValue, ITracingService tracingService)
-    {
-        try
-        {
-            tracingService.Trace($"Retrieving configuration value for key: {key} (with default: {defaultValue})");
-            
-            var configValue = dataSourceRetriever.RetrieveEntityChanges(key);
-            
-            if (string.IsNullOrEmpty(configValue))
-            {
-                tracingService.Trace($"Configuration value for key '{key}' is null or empty, using default value: {defaultValue}");
-                return defaultValue;
-            }
-
-            tracingService.Trace($"Successfully retrieved configuration value for key: {key}");
-            return configValue;
-        }
         catch (Exception ex)
         {
-            tracingService.Trace($"Error retrieving configuration value for key '{key}', using default: {defaultValue}. Error: {ex.Message}");
-            return defaultValue;
+            tracingService.Trace($"Unexpected error retrieving configuration value for key '{key}': {ex.Message}");
+            throw new InvalidPluginExecutionException($"Unexpected error retrieving configuration for key '{key}': {ex.Message}");
         }
-    }
+    }    
 
-    private static void ValidateConfiguration(string projectId, string datasetId, string tableId, string serviceAccountJson)
+    private static void ValidateConfiguration(string projectId, string datasetId, string tableId, string serviceAccountJson, string baseUrl, string tokenUrl)
     {
         if (string.IsNullOrEmpty(projectId))
             throw new InvalidPluginExecutionException("BigQuery Project ID is required");
@@ -121,6 +137,12 @@ public static class BigQueryConfigurationHelper
 
         if (string.IsNullOrEmpty(serviceAccountJson))
             throw new InvalidPluginExecutionException("BigQuery Service Account JSON is required");
+
+        if (string.IsNullOrEmpty(baseUrl))
+            throw new InvalidPluginExecutionException("BigQuery Base URL is required");
+
+        if (string.IsNullOrEmpty(tokenUrl))
+            throw new InvalidPluginExecutionException("BigQuery Token URL is required");
     }
 }
 
