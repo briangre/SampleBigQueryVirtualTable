@@ -87,6 +87,7 @@
     <Compile Include="PluginBase.cs" />
     <Compile Include="RetrieveMultiplePlugin.cs" />
     <Compile Include="RetrievePlugin.cs" />
+    <Compile Include="SecurityHelper.cs" />
     <Compile Include="UpdatePlugin.cs" />
   </ItemGroup>
   <ItemGroup>

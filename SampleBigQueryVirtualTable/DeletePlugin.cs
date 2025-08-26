@@ -38,8 +38,18 @@ public class DeletePlugin : IPlugin
 
         try
         {
-            string query = $"DELETE FROM `myproject-469115.my_baseball_data.schedule` WHERE row_id = '{recordId}'";
+            // Get the primary key field name from field mapping instead of hardcoding
+            string primaryKeyField = FieldMappingHelper.GetPrimaryKeyFieldName();
+            if (string.IsNullOrEmpty(primaryKeyField))
+            {
+                throw new InvalidPluginExecutionException("No primary key field mapping found");
+            }
+
+            // Use configuration values instead of hardcoded table reference
+            string tableReference = $"`{bigQueryConnection.GetProjectId()}.{bigQueryConnection.GetDatasetId()}.{bigQueryConnection.GetTableId()}`";
+            string query = $"DELETE FROM {tableReference} WHERE {primaryKeyField} = '{recordId}'";
             tracingService.Trace($"Delete query: {query}");
+            tracingService.Trace($"Using primary key field: {primaryKeyField}");
             
             JObject result = bigQueryConnection.ExecuteQuery(query);
 

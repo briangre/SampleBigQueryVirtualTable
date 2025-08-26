@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xrm.Sdk;
 
 public static class FieldMappingHelper
 {
     private static readonly Dictionary<string, FieldMapping> _fieldMappings = new Dictionary<string, FieldMapping>(StringComparer.OrdinalIgnoreCase)
     {
-        { "row_id", new FieldMapping("new_bqscheduleid", FieldType.Guid) },
+        { "row_id", new FieldMapping("new_bqscheduleid", FieldType.Guid, isPrimaryKey: true) },
         { "bq_name", new FieldMapping("new_name", FieldType.String) },
         { "attendance", new FieldMapping("new_attendance", FieldType.Integer) },
         { "awayTeamId", new FieldMapping("new_awayteamid", FieldType.String) },
@@ -31,6 +32,19 @@ public static class FieldMappingHelper
         return _fieldMappings.TryGetValue(sourceFieldName, out mapping);
     }
 
+    public static bool TryGetMappingWithValidation(string sourceFieldName, out FieldMapping mapping, ITracingService tracingService)
+    {
+        // Validate field name format
+        if (!System.Text.RegularExpressions.Regex.IsMatch(sourceFieldName, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+        {
+            tracingService.Trace($"Invalid field name format: {sourceFieldName}");
+            mapping = null;
+            return false;
+        }
+        
+        return TryGetMapping(sourceFieldName, out mapping);
+    }
+
     public static void MapFieldToEntity(Entity entity, string sourceFieldName, object fieldValue, ITracingService tracingService)
     {
         if (!TryGetMapping(sourceFieldName, out FieldMapping mapping))
@@ -43,10 +57,10 @@ public static class FieldMappingHelper
         if (convertedValue != null)
         {
             // Special handling for row_id to set entity.Id
-            if (sourceFieldName.ToLower() == "row_id" && convertedValue is Guid guidValue)
+            if (mapping.IsPrimaryKey && convertedValue is Guid guidValue)
             {
                 entity.Id = guidValue;
-                tracingService.Trace($"Set entity Id to: {entity.Id}");
+                tracingService.Trace($"Set entity Id to: {entity.Id} (from primary key field: {sourceFieldName})");
             }
 
             entity.Attributes.Add(mapping.DestinationFieldName, convertedValue);
@@ -64,6 +78,26 @@ public static class FieldMappingHelper
             }
         }
         return null; // No mapping found
+    }
+
+    /// <summary>
+    /// Gets the BigQuery source field name that is marked as the primary key
+    /// </summary>
+    /// <returns>The BigQuery field name used as primary key, or null if not found</returns>
+    public static string GetPrimaryKeyFieldName()
+    {
+        var primaryKeyMapping = _fieldMappings.FirstOrDefault(m => m.Value.IsPrimaryKey);
+        return primaryKeyMapping.Key;
+    }
+
+    /// <summary>
+    /// Gets the Dataverse destination field name for the primary key
+    /// </summary>
+    /// <returns>The Dataverse field name mapped to the primary key, or null if not found</returns>
+    public static string GetPrimaryKeyDestinationFieldName()
+    {
+        var primaryKeyMapping = _fieldMappings.FirstOrDefault(m => m.Value.IsPrimaryKey);
+        return primaryKeyMapping.Value?.DestinationFieldName;
     }
 
     private static object ConvertValue(object value, FieldType dataType, ITracingService tracingService, string fieldName)
@@ -102,11 +136,13 @@ public class FieldMapping
 {
     public string DestinationFieldName { get; set; }
     public FieldType DataType { get; set; }
+    public bool IsPrimaryKey { get; set; }
 
-    public FieldMapping(string destinationFieldName, FieldType dataType)
+    public FieldMapping(string destinationFieldName, FieldType dataType, bool isPrimaryKey = false)
     {
         DestinationFieldName = destinationFieldName;
         DataType = dataType;
+        IsPrimaryKey = isPrimaryKey;
     }
 }
 
