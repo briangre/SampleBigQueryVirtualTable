@@ -41,7 +41,22 @@ public class RetrievePlugin : IPlugin
 
         try
         {
-            string query = $"SELECT * FROM `myproject-469115.my_baseball_data.schedule` WHERE row_id = '{recordId}' LIMIT 1";
+            // Validate and sanitize the record ID
+            string sanitizedRecordId = SecurityHelper.ValidateGuid(recordId.ToString(), "recordId");
+            
+            string primaryKeyField = FieldMappingHelper.GetPrimaryKeyFieldName();
+            if (string.IsNullOrEmpty(primaryKeyField))
+            {
+                throw new InvalidPluginExecutionException("No primary key field mapping found");
+            }
+            
+            // Validate field name
+            string validatedPrimaryKey = SecurityHelper.ValidateFieldName(primaryKeyField);
+            
+            string tableReference = $"`{bigQueryConnection.GetProjectId()}.{bigQueryConnection.GetDatasetId()}.{bigQueryConnection.GetTableId()}`";
+            string query = $"SELECT * FROM {tableReference} WHERE {validatedPrimaryKey} = '{sanitizedRecordId}' LIMIT 1";
+            
+            tracingService.Trace($"Executing secure query with validated inputs");
             JObject result = bigQueryConnection.ExecuteQuery(query);
 
             Entity entity = new Entity(entityName);

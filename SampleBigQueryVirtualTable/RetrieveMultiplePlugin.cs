@@ -18,7 +18,8 @@ public class RetrieveMultiplePlugin : IPlugin
 
         try
         {
-            string query = $"select * from `myproject-469115.my_baseball_data.schedule`";
+            string tableReference = $"`{bigQueryConnection.GetProjectId()}.{bigQueryConnection.GetDatasetId()}.{bigQueryConnection.GetTableId()}`";
+            string query = $"select * from {tableReference}";
             JObject result = bigQueryConnection.ExecuteQuery(query);
 
             EntityCollection entities = new EntityCollection();

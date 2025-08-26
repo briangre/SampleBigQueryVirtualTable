@@ -37,16 +37,24 @@ public class CreatePlugin : IPlugin
                 }
             }
 
-            // Generate a new GUID for row_id if not already present
+            // Get the primary key field name from field mapping instead of hardcoding
+            string primaryKeyField = FieldMappingHelper.GetPrimaryKeyFieldName();
+            if (string.IsNullOrEmpty(primaryKeyField))
+            {
+                throw new InvalidPluginExecutionException("No primary key field mapping found");
+            }
+
+            // Generate a new GUID for the primary key field if not already present
             string newGuid = Guid.NewGuid().ToString();
-            rowData["row_id"] = newGuid;
-            tracingService.Trace($"Generated new row_id: {newGuid}");
+            rowData[primaryKeyField] = newGuid;
+            tracingService.Trace($"Generated new {primaryKeyField}: {newGuid}");
 
             // Also set the entity ID to the same GUID for consistency
             inputEntity.Id = Guid.Parse(newGuid);
 
             tracingService.Trace($"Inserting row with {rowData.Count} fields into BigQuery");
-            bigQueryConnection.InsertRow("schedule", rowData);
+            // Use configuration value instead of hardcoded table name
+            bigQueryConnection.InsertRow(bigQueryConnection.GetTableId(), rowData);
             
             tracingService.Trace($"Entity name: {entityName}");
             tracingService.Trace($"Entity ID: {inputEntity.Id}");
