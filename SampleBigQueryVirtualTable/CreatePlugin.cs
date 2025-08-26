@@ -15,7 +15,7 @@ public class CreatePlugin : IPlugin
         string entityName = context.PrimaryEntityName;
         Entity inputEntity = (Entity)context.InputParameters["Target"];
 
-        var bigQueryConnection = new BigQueryConnection(tracingService);
+        var bigQueryConnection = new BigQueryConnection(serviceProvider, tracingService);
 
         try
         {

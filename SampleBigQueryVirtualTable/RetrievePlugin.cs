@@ -24,27 +24,7 @@ public class RetrievePlugin : IPlugin
 
             tracingService.Trace($"Retrieve request for entity '{logicalName}' with ID: {recordId}");
 
-            // Trace all available properties and attributes on the target EntityReference
-            tracingService.Trace("=== Target EntityReference Details ===");
-            tracingService.Trace($"Target ID: {target.Id}");
-            tracingService.Trace($"Target LogicalName: {target.LogicalName}");
-            tracingService.Trace($"Target Name: {target.Name ?? "NULL"}");
-            tracingService.Trace($"Target KeyAttributes Count: {target.KeyAttributes?.Count ?? 0}");
-
-            if (target.KeyAttributes != null && target.KeyAttributes.Count > 0)
-            {
-                tracingService.Trace("--- Target KeyAttributes ---");
-                foreach (var keyAttr in target.KeyAttributes)
-                {
-                    var keyValue = keyAttr.Value ?? "NULL";
-                    tracingService.Trace($"    {keyAttr.Key}: {keyValue} (Type: {keyAttr.Value?.GetType().Name ?? "NULL"})");
-                }
-            }
-            else
-            {
-                tracingService.Trace("No KeyAttributes found on target");
-            }
-
+            
             tracingService.Trace("=== End Target EntityReference Details ===");
         }
 
@@ -57,7 +37,7 @@ public class RetrievePlugin : IPlugin
             throw new InvalidPluginExecutionException("Target EntityReference is required for retrieve operation");
         }
 
-        var bigQueryConnection = new BigQueryConnection(tracingService);
+        var bigQueryConnection = new BigQueryConnection(serviceProvider, tracingService);
 
         try
         {

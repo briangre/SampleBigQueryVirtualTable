@@ -17,7 +17,7 @@ public class UpdatePlugin : IPlugin
         Entity inputEntity = (Entity)context.InputParameters["Target"];
         Guid recordId = inputEntity.Id;
 
-        var bigQueryConnection = new BigQueryConnection(tracingService);
+        var bigQueryConnection = new BigQueryConnection(serviceProvider, tracingService);
 
         try
         {

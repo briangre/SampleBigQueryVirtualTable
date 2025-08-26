@@ -16,25 +16,21 @@ public class BigQueryConnection
     private string _accessToken;
     private DateTime _tokenExpiry;
 
-    // Define the service account JSON as a constant (escaped)
-    private const string ServiceAccountJson = "{\n  \"type\": \"service_account\",\n  \"project_id\": \"meta-shape-459919-i1\",\n  \"private_key_id\": \"78ce0ff72dbbc0aa1fac8e94707e029c580d191e\",\n  \"private_key\": \"-----BEGIN PRIVATE KEY-----\\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCwfflzQaGhosyG\\nVHpNWIlUo1Bi1Iq/BBvy6MNTX/4QS45p4N4VYtl2oNnKtGRRvE+tRpgJLix7dlns\\n4WgAcuXrDeOWTjJhchhKxwjLyjUojdJrJUW6Ds2xu6t1gH1Pa/iiZJ4bugJX98Cq\\n0BekSSDoDPVZ9j4/cgk8P2kljMMdehgRQSuKuRDfOKCLUE3T0UMtN+ny69ko4Ip/\\nPCzpwLbWy3xvE48TE4CSHLHS5WD59bHlnlIIRk5yBXcGyiZlqAzcDD5EJBbXXgw1\\nnjzFvSNLkoox/hwMLBQoWjR70O9VdDrAnUWh/5lHK2kzWDurBWiw89gOuD18/l3T\\n7N0KYn0BAgMBAAECggEASaROvQ5CFHEa+OPv4i0SpFu+k3ZO7FQZG1qPAc94cbEt\\nG7WlxPOpfGuyZHevskEqV8kwcAgxrFReQk5tOF6428LAVzuKnwld5Hm3DF1zn9fJ\\nWEbFmNRLdKEzckRqRQTuykfEhxoulyj73eoVK0oOLnUVvPNX1t5MxzRIOdBJq5bP\\nvrIdc7jicCAhfKbTCTakqxIqHv4sfswuHNavhwmuyFuy8vLgrDaYtQHaiSx4Gwx/\\n/BjXTke8FFSOxjAwqu+9umxBOyqYv+hWF8ug/Us6RXfsutqKi0iC7BvSBNWBTbUY\\n4/7It7sDDFOVhIniwM58daqFQuyGMCu3lsea1JHJPwKBgQDnvhbEKMfSONRdbAot\\n3MIYsFqoCFEQiL7zXxYYL5LNbsQM3RTFZlkpd3EBwHIySbFwel54vOXLBV4zAr8i\\n6Cg3zzJ4N/nQvfaps6JDR7JuRZVxHN36XQyk1/YMvyvWLhJFynJMMrNzfDme7q5c\\nHS9UPsnujI7VtR1cmnftS8SlqwKBgQDC91yP947EhG518H7O4OObbghCM1LNQoNA\\nlgJ00XW7SlHlUyutCoi+JufjQI0vwDyWh6GIw5qlZbqoTiQffpmmdJ7V717FMFM7\\n176evt1i92RXa1zinIGt2ojhQrtssg7oj6kTA/MT822IyptXWCnYgtF/Ej6qLApd\\n8U8jPdmkAwKBgHi2wfEoNP5CcAzB7IN7TPfDVVXWDzQHpz/qtf2fOl8cZa81sk4p\\nRCSffRQmhNXBIVavx2opK6IXh7wWoC20tM5tdaK9tbmQWl6Hnexh+oYKZQ/os5Bo\\ny99KR3bYViNZGFeWXvdmKafse69YMSb2ZOMDWfiS6wxTLZpBNFs9bo/FAoGAJylg\\nolprhvXC6lXAYvWxQks7xXBhtXEixBpdq/FW4KPxB0tJfpybEvblpTQWJ/1JLkNY\\nIwyHR6nDcIMhpmHbox/Rt885DgrC7UZMt75G4dYnhZe/NJWTRsSasgSheRfa/sO8\\nhmFItj0zR0LLKSRAY4kDY67af3wRKQWLi9ykltkCgYAz/42gY5UPoYTlEzuyU8Y+\\nvQBb/CwWkNAsrIOECqr9o8AYrvhYN3jar7sLMmxnoRD75/M021PWhKyhyid0iXFV\\n2fKAE+pley96HVfZKKTESWRbYuGv7i5LJAVlvt7pIrk3r6lLbmGciSWjE+oHcwR3\\no9U0An0lLxocazqheMMrdg==\\n-----END PRIVATE KEY-----\\n\",\n  \"client_email\": \"bg-bigquery@meta-shape-459919-i1.iam.gserviceaccount.com\",\n  \"client_id\": \"106844702714132345900\",\n  \"auth_uri\": \"https://accounts.google.com/o/oauth2/auth\",\n  \"token_uri\": \"https://oauth2.googleapis.com/token\",\n  \"auth_provider_x509_cert_url\": \"https://www.googleapis.com/oauth2/v1/certs\",\n  \"client_x509_cert_url\": \"https://www.googleapis.com/robot/v1/metadata/x509/bg-bigquery%40meta-shape-459919-i1.iam.gserviceaccount.com\",\n  \"universe_domain\": \"googleapis.com\"\n}";
+    // Configuration loaded from IEntityDataSourceRetrieverService
+    private readonly BigQueryConfiguration _configuration;
 
-    // Define the project ID as a constant
-    private const string ProjectId = "myproject-469115";
-    private const string DatasetId = "my_baseball_data"; 
-    private const string TableId = "schedules";
-    private const string BigQueryBaseUrl = "https://bigquery.googleapis.com/bigquery/v2";
-    private const string GoogleTokenUrl = "https://oauth2.googleapis.com/token";
-
-    public BigQueryConnection(ITracingService tracingService)
+    public BigQueryConnection(IServiceProvider serviceProvider, ITracingService tracingService)
     {
         _tracingService = tracingService;
         _httpClient = new HttpClient();
         
         try
         {
+            // Load configuration from IEntityDataSourceRetrieverService
+            _configuration = BigQueryConfigurationHelper.GetConfiguration(serviceProvider, tracingService);
+            
             InitializeAuthentication();
-            _tracingService.Trace("BigQuery REST connection initialized successfully.");
+            _tracingService.Trace("BigQuery REST connection initialized successfully from configuration service.");
         }
         catch (Exception ex)
         {
@@ -58,7 +54,7 @@ public class BigQueryConnection
                 return _accessToken;
             }
 
-            var serviceAccountInfo = JsonConvert.DeserializeObject<JObject>(ServiceAccountJson);
+            var serviceAccountInfo = JsonConvert.DeserializeObject<JObject>(_configuration.ServiceAccountJson);
             var clientEmail = serviceAccountInfo["client_email"].ToString();
             var privateKey = serviceAccountInfo["private_key"].ToString();
 
@@ -95,7 +91,7 @@ public class BigQueryConnection
             {
                 iss = clientEmail,
                 scope = "https://www.googleapis.com/auth/bigquery",
-                aud = GoogleTokenUrl,
+                aud = _configuration.TokenUrl, // Now using configuration value
                 exp = now.AddHours(1).ToUnixTimeSeconds(),
                 iat = now.ToUnixTimeSeconds()
             };
@@ -283,7 +279,8 @@ public class BigQueryConnection
 
             var formContent = new FormUrlEncodedContent(requestBody);
 
-            var response = _httpClient.PostAsync(GoogleTokenUrl, formContent).GetAwaiter().GetResult();
+            // Now using configuration value for token URL
+            var response = _httpClient.PostAsync(_configuration.TokenUrl, formContent).GetAwaiter().GetResult();
             var responseContent = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
 
             if (response.IsSuccessStatusCode)
@@ -340,7 +337,8 @@ public class BigQueryConnection
             var json = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{BigQueryBaseUrl}/projects/{ProjectId}/queries")
+            // Now using configuration value for base URL
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{_configuration.BaseUrl}/projects/{_configuration.ProjectId}/queries")
             {
                 Content = content
             };
@@ -388,8 +386,9 @@ public class BigQueryConnection
             var json = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
+            // Now using configuration value for base URL
             var request = new HttpRequestMessage(HttpMethod.Post, 
-                $"{BigQueryBaseUrl}/projects/{ProjectId}/datasets/{DatasetId}/tables/{tableName}/insertAll")
+                $"{_configuration.BaseUrl}/projects/{_configuration.ProjectId}/datasets/{_configuration.DatasetId}/tables/{tableName}/insertAll")
             {
                 Content = content
             };
@@ -432,4 +431,11 @@ public class BigQueryConnection
     {
         _httpClient?.Dispose();
     }
+
+    // Public properties to access configuration values if needed
+    public string GetProjectId() => _configuration.ProjectId;
+    public string GetDatasetId() => _configuration.DatasetId;
+    public string GetTableId() => _configuration.TableId;
+    public string GetBaseUrl() => _configuration.BaseUrl;
+    public string GetTokenUrl() => _configuration.TokenUrl;
 }

@@ -14,7 +14,7 @@ public class RetrieveMultiplePlugin : IPlugin
         tracingService.Trace("RetrieveMultiplePlugin started.");
 
         string entityName = context.PrimaryEntityName;
-        var bigQueryConnection = new BigQueryConnection(tracingService);
+        var bigQueryConnection = new BigQueryConnection(serviceProvider, tracingService);
 
         try
         {

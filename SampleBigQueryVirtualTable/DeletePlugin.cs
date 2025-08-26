@@ -34,7 +34,7 @@ public class DeletePlugin : IPlugin
             throw new InvalidPluginExecutionException("Target EntityReference is required for delete operation");
         }
 
-        var bigQueryConnection = new BigQueryConnection(tracingService);
+        var bigQueryConnection = new BigQueryConnection(serviceProvider, tracingService);
 
         try
         {

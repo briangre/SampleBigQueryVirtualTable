@@ -78,6 +78,7 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BigQueryConfigurationHelper.cs" />
     <Compile Include="BigQueryConnection.cs" />
     <Compile Include="CreatePlugin.cs" />
     <Compile Include="DeletePlugin.cs" />
